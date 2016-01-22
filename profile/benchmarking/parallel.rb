@@ -86,24 +86,20 @@ module Mongo
       #
       # @since 2.2.2
       def import
-        #require 'yajl'
-        #parser = Yajl::Parser.new
+        require 'yajl/json_gem'
+        require 'celluloid'
+
+        Mongo::Collection.send(:include, Celluloid)
+
         client.database.drop
         create_collection
         files =  [*1..100].collect { |i| "#{LDJSON_FILE_BASE}#{i.to_s.rjust(3, "0")}.txt" }
 
-        threads = []
         result = Benchmark.realtime do
-          4.times do |i|
-            threads << Thread.new do
-              10.times do |j|
-                docs = File.open(files[10 * i + j]).collect { |document| JSON.parse(document) }
-                #docs = File.open(files[10 * i + j]).collect { |document| parser.parse(document) }
-                collection.insert_many(docs)
-              end
-            end
+          100.times do |i|
+            docs = File.open(files[i]).map{ |document| JSON.parse(document) }
+            collection.async.insert_many(docs)
           end
-          threads.collect { |t| t.join }
         end
         client.database.drop
         result
